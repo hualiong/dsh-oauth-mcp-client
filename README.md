@@ -37,7 +37,7 @@ pnpm install
 pnpm build
 ```
 
-Install the local checkout into a DSH profile and start DSH:
+Install the built checkout into a DSH profile and start DSH:
 
 ```sh
 PLUGIN_DIR="$PWD"
@@ -45,8 +45,12 @@ npx --yes @deepseek-ai/dsh@latest plugin --profile web add "$PLUGIN_DIR"
 npx --yes @deepseek-ai/dsh@latest web
 ```
 
+This repository is not published to npm, so installation currently uses the
+local checkout. Adding the bundle to the profile also adds the bundled
+Springbrand MCP connection; there is no separate MCP registration step.
+
 The first startup opens a browser for Springbrand login and consent. After
-authorization, DSH registers these tools:
+authorization, use these registered tools to verify the connection:
 
 - `mcp__springbrand__search_capabilities`
 - `mcp__springbrand__execute_capability`
@@ -91,9 +95,31 @@ The bundled defaults are defined in
 | `failOnStartupError` | Fail activation when the first connection fails | `true` |
 | `reconnect` | Exponential reconnect policy | Enabled |
 
-To use another OAuth-enabled Streamable HTTP MCP server, edit the bundle
-configuration before installation and change `id`, `serverName`, `url`, and
-`credentialRef`. Each `serverName` must be unique within one DSH process.
+## Add another MCP server
+
+After installing the plugin, create `my-mcp.cordis.yml`:
+
+```yaml
+- insert:
+    - id: my-oauth-mcp
+      name: '@dsh-external/dsh-oauth-mcp-client'
+      config:
+        serverName: my-mcp
+        url: https://mcp.example.com/mcp
+        credentialRef: MY_MCP_OAUTH
+        failOnStartupError: true
+```
+
+Load the additional connection with a DSH patch:
+
+```sh
+npx --yes @deepseek-ai/dsh@latest web --patch ./my-mcp.cordis.yml
+```
+
+The server must support OAuth and MCP Streamable HTTP. Its first connection
+opens the browser authorization flow. `serverName` must be unique within the
+DSH process and becomes part of the registered tool names, for example
+`mcp__my-mcp__search`.
 
 ## Security notes
 

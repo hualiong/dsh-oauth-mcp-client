@@ -36,7 +36,7 @@ pnpm install
 pnpm build
 ```
 
-把当前目录安装到 DSH profile，然后启动 DSH：
+把已经构建好的当前目录安装到 DSH profile，然后启动 DSH：
 
 ```sh
 PLUGIN_DIR="$PWD"
@@ -44,7 +44,10 @@ npx --yes @deepseek-ai/dsh@latest plugin --profile web add "$PLUGIN_DIR"
 npx --yes @deepseek-ai/dsh@latest web
 ```
 
-首次启动会打开浏览器进行 Springbrand 登录和授权。授权成功后，DSH 会注册：
+本仓库目前没有发布到 npm，因此使用本地 checkout 安装。把这个 bundle 添加到 profile
+时，默认的 Springbrand MCP 连接也会自动添加，不需要再执行一次 MCP 注册操作。
+
+首次启动会打开浏览器进行 Springbrand 登录和授权。授权成功后，可以用以下工具验证连接：
 
 - `mcp__springbrand__search_capabilities`
 - `mcp__springbrand__execute_capability`
@@ -87,9 +90,30 @@ flowchart LR
 | `failOnStartupError` | 首次连接失败时终止激活 | `true` |
 | `reconnect` | 指数退避重连策略 | 已启用 |
 
-如需连接其他支持 OAuth 的 Streamable HTTP MCP 服务，请在安装前编辑 bundle 配置，
-并修改 `id`、`serverName`、`url` 和 `credentialRef`。同一个 DSH 进程中的
-`serverName` 必须唯一。
+## 添加另一个 MCP 服务
+
+安装插件后，新建 `my-mcp.cordis.yml`：
+
+```yaml
+- insert:
+    - id: my-oauth-mcp
+      name: '@dsh-external/dsh-oauth-mcp-client'
+      config:
+        serverName: my-mcp
+        url: https://mcp.example.com/mcp
+        credentialRef: MY_MCP_OAUTH
+        failOnStartupError: true
+```
+
+通过 DSH patch 加载这个额外连接：
+
+```sh
+npx --yes @deepseek-ai/dsh@latest web --patch ./my-mcp.cordis.yml
+```
+
+服务端必须支持 OAuth 和 MCP Streamable HTTP。首次连接时会打开浏览器进行授权。
+同一个 DSH 进程中的 `serverName` 必须唯一，它也会成为工具名的一部分，例如
+`mcp__my-mcp__search`。
 
 ## 安全说明
 
