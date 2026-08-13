@@ -92,7 +92,8 @@ flowchart LR
 
 ## 添加另一个 MCP 服务
 
-安装插件后，新建 `my-mcp.cordis.yml`：
+安装插件后，把连接配置写入 Web profile 的永久配置文件
+`~/.dsh/profiles/web/cordis.patch.yml`：
 
 ```yaml
 - insert:
@@ -103,12 +104,6 @@ flowchart LR
         url: https://mcp.example.com/mcp
         credentialRef: MY_MCP_OAUTH
         failOnStartupError: true
-```
-
-通过 DSH patch 加载这个额外连接：
-
-```sh
-npx --yes @deepseek-ai/dsh@latest web --patch ./my-mcp.cordis.yml
 ```
 
 服务端必须支持 OAuth 和 MCP Streamable HTTP。首次连接时会打开浏览器进行授权。

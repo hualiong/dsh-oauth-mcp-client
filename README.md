@@ -97,7 +97,8 @@ The bundled defaults are defined in
 
 ## Add another MCP server
 
-After installing the plugin, create `my-mcp.cordis.yml`:
+After installing the plugin, add the connection to the permanent Web profile
+configuration at `~/.dsh/profiles/web/cordis.patch.yml`:
 
 ```yaml
 - insert:
@@ -108,12 +109,6 @@ After installing the plugin, create `my-mcp.cordis.yml`:
         url: https://mcp.example.com/mcp
         credentialRef: MY_MCP_OAUTH
         failOnStartupError: true
-```
-
-Load the additional connection with a DSH patch:
-
-```sh
-npx --yes @deepseek-ai/dsh@latest web --patch ./my-mcp.cordis.yml
 ```
 
 The server must support OAuth and MCP Streamable HTTP. Its first connection
