@@ -73,11 +73,11 @@ class CredentialOAuthStore {
     try {
       parsed = JSON.parse(resolved.value)
     } catch {
-      throw new Error(`mcp-oauth-client: credential ${this.ref} does not contain valid OAuth JSON`)
+      throw new Error(`dsh-oauth-mcp-client: credential ${this.ref} does not contain valid OAuth JSON`)
     }
     const result = StoredOAuthStateSchema.safeParse(parsed)
     if (!result.success) {
-      throw new Error(`mcp-oauth-client: credential ${this.ref} contains unsupported OAuth state`)
+      throw new Error(`dsh-oauth-mcp-client: credential ${this.ref} contains unsupported OAuth state`)
     }
     return result.data
   }
@@ -164,7 +164,7 @@ class HarnessOAuthProvider implements OAuthClientProvider {
   }
 
   codeVerifier(): string {
-    if (!this.verifier) throw new Error('mcp-oauth-client: OAuth code verifier is unavailable')
+    if (!this.verifier) throw new Error('dsh-oauth-mcp-client: OAuth code verifier is unavailable')
     return this.verifier
   }
 
@@ -215,7 +215,7 @@ class OAuthRuntimeImpl implements OAuthRuntime {
   }
 
   async beginAuthorization(authorizationUrl: URL): Promise<void> {
-    if (this.disposed) throw new Error('mcp-oauth-client: OAuth runtime is disposed')
+    if (this.disposed) throw new Error('dsh-oauth-mcp-client: OAuth runtime is disposed')
     if (this.pending && !this.pending.settled) return
 
     const gate: PromiseWithResolvers<void> = Promise.withResolvers()
@@ -224,7 +224,7 @@ class OAuthRuntimeImpl implements OAuthRuntime {
       resolve: gate.resolve,
       reject: gate.reject,
       timer: setTimeout(() => {
-        this.rejectPending(pending, new Error('mcp-oauth-client: browser authorization timed out'))
+        this.rejectPending(pending, new Error('dsh-oauth-mcp-client: browser authorization timed out'))
       }, this.config.authorizationTimeoutMs),
       settled: false,
     }
@@ -235,17 +235,17 @@ class OAuthRuntimeImpl implements OAuthRuntime {
     try {
       await this.openAuthorization(authorizationUrl)
       this.ctx.logger.info(
-        `mcp-oauth-client(${this.config.serverName}): opened authorization in the default browser; waiting for the loopback callback`,
+        `dsh-oauth-mcp-client(${this.config.serverName}): opened authorization in the default browser; waiting for the loopback callback`,
       )
     } catch (error) {
-      this.rejectPending(pending, new Error('mcp-oauth-client: failed to open the default browser', { cause: error }))
+      this.rejectPending(pending, new Error('dsh-oauth-mcp-client: failed to open the default browser', { cause: error }))
       throw error
     }
   }
 
   async waitForAuthorization(): Promise<void> {
     const pending = this.pending
-    if (!pending) throw new Error('mcp-oauth-client: authorization was requested without a pending browser flow')
+    if (!pending) throw new Error('dsh-oauth-mcp-client: authorization was requested without a pending browser flow')
     try {
       await pending.promise
     } finally {
@@ -295,7 +295,7 @@ class OAuthRuntimeImpl implements OAuthRuntime {
     if (this.disposed) return
     this.disposed = true
     const pending = this.pending
-    if (pending) this.rejectPending(pending, new Error('mcp-oauth-client: disposed during authorization'))
+    if (pending) this.rejectPending(pending, new Error('dsh-oauth-mcp-client: disposed during authorization'))
     this.server.closeAllConnections()
     await new Promise<void>((resolve, reject) => {
       this.server.close(error => error ? reject(error) : resolve())

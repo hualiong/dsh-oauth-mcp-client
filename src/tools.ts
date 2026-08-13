@@ -140,7 +140,7 @@ export async function syncTools(
       const publicName = publicToolName(opts.serverName, tool.name)
       if (definitions.has(publicName)) {
         throw new Error(
-          `mcp-oauth-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`,
+          `dsh-oauth-mcp-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`,
         )
       }
       definitions.set(publicName, {
@@ -166,7 +166,7 @@ export async function syncTools(
     // registration occupies this server's namespace. Roll back so the model
     // sees either the full generation or none of it — never a partial set.
     for (const dispose of disposers.values()) dispose()
-    ctx.logger.error(`mcp-oauth-client(${opts.serverName}): tool registration failed, no tools registered: ${String(error)}`)
+    ctx.logger.error(`dsh-oauth-mcp-client(${opts.serverName}): tool registration failed, no tools registered: ${String(error)}`)
     if (opts.registrationFailure === 'throw') throw error
     return new Map()
   }

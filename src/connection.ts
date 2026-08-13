@@ -128,7 +128,7 @@ export function startConnection(
   policy: ResolvedReconnectPolicy,
   oauth: OAuthRuntime,
 ): ConnectionHandle {
-  const label = `mcp-oauth-client(${config.serverName})`
+  const label = `dsh-oauth-mcp-client(${config.serverName})`
   const opts: ToolBridgeOptions = {
     registrationFailure: 'contain',
     serverName: config.serverName,
@@ -243,7 +243,7 @@ export function startConnection(
    */
   async function connectGeneration(startup: boolean): Promise<void> {
     const generation = new Client(
-      { name: 'dsh-mcp-oauth-mcp', version: '0.1.0' },
+      { name: 'dsh-oauth-mcp-client', version: '0.1.0' },
       { capabilities: {} },
     )
     const closed: PromiseWithResolvers<void> = Promise.withResolvers()

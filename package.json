@@ -1,5 +1,5 @@
 {
-  "name": "@springbrand/dsh-mcp-oauth-mcp",
+  "name": "@springbrand/dsh-oauth-mcp-client",
   "version": "0.1.0",
   "private": true,
   "description": "OAuth-enabled Streamable HTTP MCP client plugin for DeepSeek Harness",

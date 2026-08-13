@@ -1,4 +1,4 @@
-# dsh-mcp-oauth-mcp
+# dsh-oauth-mcp-client
 
 An OAuth 2.1 Streamable HTTP MCP client plugin for DeepSeek Harness. It keeps
 the native `dsh-mcp-client` tool discovery, registration, execution, and
@@ -11,7 +11,7 @@ directly from a local checkout and does not depend on a plugin marketplace.
 
 ```mermaid
 flowchart LR
-  DSH["DeepSeek Harness"] --> Plugin["dsh-mcp-oauth-mcp"]
+  DSH["DeepSeek Harness"] --> Plugin["dsh-oauth-mcp-client"]
   Plugin --> Gateway["Springbrand MCP Gateway"]
   Gateway --> Browser["Browser login and consent"]
   Browser --> Callback["127.0.0.1 OAuth callback"]
@@ -24,7 +24,7 @@ flowchart LR
 Build the plugin:
 
 ```sh
-cd /Users/yzend/code/springbrand/dsh-mcp-oauth-mcp
+cd /Users/yzend/code/springbrand/dsh-oauth-mcp-client
 pnpm install
 pnpm build
 ```
@@ -33,7 +33,7 @@ Install it into the DSH `web` profile:
 
 ```sh
 cd /Users/yzend/code/deepseek-harness-pro
-pnpm dsh plugin --profile web add /Users/yzend/code/springbrand/dsh-mcp-oauth-mcp
+pnpm dsh plugin --profile web add /Users/yzend/code/springbrand/dsh-oauth-mcp-client
 pnpm dsh web
 ```
 
