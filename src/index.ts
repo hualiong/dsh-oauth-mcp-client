@@ -1,0 +1,179 @@
+/**
+ * OAuth-enabled Streamable HTTP MCP client for DeepSeek Harness.
+ *
+ * The plugin preserves the tool discovery, naming, execution, and reconnect
+ * behavior of `@deepseek-ai/dsh-mcp-client`, while adding an interactive
+ * OAuth authorization-code flow backed by the Harness credential service.
+ *
+ * @module @springbrand/dsh-mcp-oauth-mcp
+ */
+
+import type { Context } from '@deepseek-ai/cordis'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-tools'
+import { createOAuthRuntime } from './oauth.js'
+import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from './connection.js'
+import type { ReconnectConfig } from './connection.js'
+
+export type { McpResult } from './tools.js'
+export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.js'
+
+/** Cordis plugin name used by loader diagnostics. */
+export const name = 'mcp-oauth-client'
+
+/** Services required by the OAuth client. */
+export const inject = ['tools', 'credentials']
+
+const DEFAULT_TOOL_CALL_TIMEOUT_MS = 60_000
+const DEFAULT_AUTHORIZATION_TIMEOUT_MS = 5 * 60_000
+const MAX_TIMER_DELAY_MS = 2_147_483_647
+const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
+
+/** User configuration for one OAuth-protected Streamable HTTP MCP server. */
+export interface Config {
+  /** Stable namespace used in public tool names (`mcp__<serverName>__<tool>`). */
+  serverName: string
+  /** HTTPS MCP endpoint; loopback HTTP is accepted for local development. */
+  url: string
+  /** Harness credential reference holding the serialized OAuth state. */
+  credentialRef?: string
+  /** Optional fallback OAuth scope when server metadata does not declare one. */
+  scope?: string
+  /** Non-authorization headers attached to MCP and OAuth discovery requests. */
+  headers?: Record<string, string>
+  /** Loopback callback port; `0` asks the OS for an available port. */
+  callbackPort?: number
+  /** Maximum wait for the browser authorization callback. */
+  authorizationTimeoutMs?: number
+  /** Per-tool MCP request timeout. */
+  toolCallTimeoutMs?: number
+  /** Reject plugin activation if the first connect/auth/sync attempt fails. */
+  failOnStartupError?: boolean
+  /** Automatic reconnect policy after a lost MCP connection. */
+  reconnect?: ReconnectConfig
+}
+
+/** Configuration after validation and deployment defaults are resolved once. */
+export interface ResolvedConfig {
+  serverName: string
+  url: string
+  credentialRef: string
+  scope?: string
+  headers: Record<string, string>
+  callbackPort: number
+  authorizationTimeoutMs: number
+  toolCallTimeoutMs: number
+  failOnStartupError: boolean
+}
+
+const Reconnect: z<ReconnectConfig> = z.object({
+  enabled: z.boolean().default(RECONNECT_DEFAULTS.enabled),
+  initialDelayMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(RECONNECT_DEFAULTS.initialDelayMs),
+  maxDelayMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(RECONNECT_DEFAULTS.maxDelayMs),
+  maxAttempts: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(RECONNECT_DEFAULTS.maxAttempts),
+})
+
+/** Cordis configuration schema. */
+export const Config: z<Config> = z.object({
+  serverName: z.string().required().pattern(SERVER_NAME_PATTERN),
+  url: z.string().required(),
+  credentialRef: z.string(),
+  scope: z.string(),
+  headers: z.dict(String).default({}),
+  callbackPort: z.number().step(1).min(0).max(65_535).default(0),
+  authorizationTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_AUTHORIZATION_TIMEOUT_MS),
+  toolCallTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
+  failOnStartupError: z.boolean().default(true),
+  reconnect: Reconnect,
+})
+
+const activeServerNames = new WeakMap<Context, Set<string>>()
+
+/** Derive a valid credential reference when the deployment does not name one. */
+export function defaultCredentialRef(serverName: string): string {
+  return `DSH_MCP_OAUTH_${serverName.toUpperCase().replaceAll('-', '_')}`
+}
+
+/** Resolve defaults and reject unsafe or internally conflicting configuration. */
+export function resolveConfig(config: Config): ResolvedConfig {
+  if (!SERVER_NAME_PATTERN.test(config.serverName)) {
+    throw new Error(`mcp-oauth-client: serverName must match ${String(SERVER_NAME_PATTERN)}`)
+  }
+
+  const url = new URL(config.url)
+  const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '[::1]'
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error('mcp-oauth-client: url must use HTTPS, except for loopback development endpoints')
+  }
+  if (url.username || url.password) throw new Error('mcp-oauth-client: url must not contain credentials')
+
+  const headers = { ...(config.headers ?? {}) }
+  if (Object.keys(headers).some(key => key.toLowerCase() === 'authorization')) {
+    throw new Error('mcp-oauth-client: headers.Authorization is owned by OAuth and must not be configured')
+  }
+
+  const callbackPort = config.callbackPort ?? 0
+  if (!Number.isInteger(callbackPort) || callbackPort < 0 || callbackPort > 65_535) {
+    throw new Error('mcp-oauth-client: callbackPort must be an integer from 0 through 65535')
+  }
+  const authorizationTimeoutMs = config.authorizationTimeoutMs ?? DEFAULT_AUTHORIZATION_TIMEOUT_MS
+  const toolCallTimeoutMs = config.toolCallTimeoutMs ?? DEFAULT_TOOL_CALL_TIMEOUT_MS
+  for (const [key, value] of Object.entries({ authorizationTimeoutMs, toolCallTimeoutMs })) {
+    if (!Number.isFinite(value) || value <= 0 || value > MAX_TIMER_DELAY_MS) {
+      throw new Error(`mcp-oauth-client: ${key} must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`)
+    }
+  }
+
+  const ref = config.credentialRef ?? defaultCredentialRef(config.serverName)
+  credentialRef(ref)
+  const scope = config.scope?.trim()
+  if (config.scope !== undefined && !scope) throw new Error('mcp-oauth-client: scope must not be empty')
+
+  return Object.freeze({
+    serverName: config.serverName,
+    url: url.toString(),
+    credentialRef: ref,
+    ...(scope === undefined ? {} : { scope }),
+    headers,
+    callbackPort,
+    authorizationTimeoutMs,
+    toolCallTimeoutMs,
+    failOnStartupError: config.failOnStartupError ?? true,
+  })
+}
+
+/** Connect, authorize when needed, and publish the remote MCP tools. */
+export async function apply(ctx: Context, config: Config): Promise<void> {
+  const resolved = resolveConfig(config)
+  const reconnect = resolveReconnectPolicy(config.reconnect, `mcp-oauth-client(${resolved.serverName}): reconnect`)
+
+  ctx.effect(() => {
+    let names = activeServerNames.get(ctx.root)
+    if (!names) {
+      names = new Set()
+      activeServerNames.set(ctx.root, names)
+    }
+    if (names.has(resolved.serverName)) {
+      throw new Error(
+        `mcp-oauth-client: serverName "${resolved.serverName}" is already in use by another instance`,
+      )
+    }
+    names.add(resolved.serverName)
+    return () => void names.delete(resolved.serverName)
+  }, 'mcp-oauth-client.serverName')
+
+  const oauth = await createOAuthRuntime(ctx, resolved)
+  ctx.effect(() => () => oauth.dispose(), 'mcp-oauth-client.oauth')
+
+  const connection = startConnection(ctx, resolved, reconnect, oauth)
+  ctx.effect(() => () => connection.dispose(), 'mcp-oauth-client.connection')
+
+  const outcome = await connection.ready
+  if (outcome.error !== undefined && resolved.failOnStartupError) {
+    throw new Error(
+      `mcp-oauth-client(${resolved.serverName}): initial authorization, connection, or tool synchronization failed`,
+      { cause: outcome.error },
+    )
+  }
+}

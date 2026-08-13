@@ -1,0 +1,8 @@
+- insert:
+    - id: springbrand-mcp-oauth
+      name: '@springbrand/dsh-mcp-oauth-mcp'
+      config:
+        serverName: springbrand
+        url: https://devconnector.springbrand.ai/mcp
+        credentialRef: SPRINGBRAND_MCP_OAUTH
+        failOnStartupError: true
