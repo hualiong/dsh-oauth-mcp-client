@@ -17,9 +17,8 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { ListToolsResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
-import { assertSupportedJsonSchema } from '@deepseek-ai/dsh-tools'
-import type { JsonSchemaNode, JsonValue } from '@deepseek-ai/dsh-tools'
+import { assertSupportedJsonSchema } from './dsh.js'
+import type { JsonSchemaNode, JsonValue, ToolDefinition, ToolExecution } from './dsh.js'
 
 /** Resolved options relevant to tool bridging. */
 export interface ToolBridgeOptions {

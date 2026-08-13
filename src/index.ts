@@ -5,13 +5,13 @@
  * behavior of `@deepseek-ai/dsh-mcp-client`, while adding an interactive
  * OAuth authorization-code flow backed by the Harness credential service.
  *
- * @module @springbrand/dsh-oauth-mcp-client
+ * @module @dsh-external/dsh-oauth-mcp-client
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-tools'
+import { credentialRef } from './dsh.js'
+import type {} from './dsh.js'
 import { createOAuthRuntime } from './oauth.js'
 import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from './connection.js'
 import type { ReconnectConfig } from './connection.js'

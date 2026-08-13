@@ -1,80 +1,133 @@
 # dsh-oauth-mcp-client
 
-An OAuth 2.1 Streamable HTTP MCP client plugin for DeepSeek Harness. It keeps
-the native `dsh-mcp-client` tool discovery, registration, execution, and
-reconnection behavior while adding MCP SDK OAuth, PKCE, dynamic client
-registration, browser authorization, a loopback callback, and token storage.
+English | [简体中文](./README.zh-CN.md)
 
-The bundled configuration connects to the Springbrand production Gateway at
-`https://connector.springbrand.ai/mcp`. This package can be installed
-directly from a local checkout and does not depend on a plugin marketplace.
+An OAuth 2.1 Streamable HTTP MCP client plugin for
+[DeepSeek Harness](https://github.com/deepseek-ai/DeepSeek-Harness).
 
-```mermaid
-flowchart LR
-  DSH["DeepSeek Harness"] --> Plugin["dsh-oauth-mcp-client"]
-  Plugin --> Gateway["Springbrand MCP Gateway"]
-  Gateway --> Browser["Browser login and consent"]
-  Browser --> Callback["127.0.0.1 OAuth callback"]
-  Callback --> Plugin
-  Plugin --> Credentials["DSH credential store"]
-```
+It extends the native `dsh-mcp-client` connection flow with PKCE, dynamic
+client registration, browser authorization, a loopback callback, persistent
+token storage, reconnect handling, and MCP tool registration. The bundled
+configuration connects to the Springbrand production MCP Gateway.
 
-## Local installation
+## Features
 
-Build the plugin:
+- OAuth 2.1 authorization code flow with PKCE
+- Dynamic OAuth client registration
+- Browser login with a loopback callback
+- Token and client metadata storage through the DSH credential service
+- Streamable HTTP transport with automatic reconnects
+- MCP tool discovery, registration, and execution
+
+## Requirements
+
+- Node.js 22.19 or later
+- Git
+- A browser for the first OAuth login
+
+## Install
+
+Clone and build the plugin:
 
 ```sh
-cd /Users/yzend/code/springbrand/dsh-oauth-mcp-client
+git clone https://github.com/springbrand-lab/dsh-oauth-mcp-client.git
+cd dsh-oauth-mcp-client
+corepack enable
 pnpm install
 pnpm build
 ```
 
-Install it into the DSH `web` profile:
+Install the local checkout into a DSH profile and start DSH:
 
 ```sh
-cd /Users/yzend/code/deepseek-harness-pro
-pnpm dsh plugin --profile web add /Users/yzend/code/springbrand/dsh-oauth-mcp-client
-pnpm dsh web
+PLUGIN_DIR="$PWD"
+npx --yes @deepseek-ai/dsh@latest plugin --profile web add "$PLUGIN_DIR"
+npx --yes @deepseek-ai/dsh@latest web
 ```
 
-The first startup opens the default browser. After Springbrand login and
-consent, DSH registers these tools:
+The first startup opens a browser for Springbrand login and consent. After
+authorization, DSH registers these tools:
 
 - `mcp__springbrand__search_capabilities`
 - `mcp__springbrand__execute_capability`
 
-OAuth tokens, dynamic registration data, and the discovery cache are stored
-through the DSH credential service under `SPRINGBRAND_MCP_OAUTH_PRODUCTION` in
-the bundled production configuration.
-Do not add an `Authorization` header to the YAML configuration.
+## Use
+
+Ask the agent to search the Springbrand capability catalog, for example:
+
+```text
+Search the Springbrand marketplace for resources and list the first 10.
+```
+
+The expected call flow is:
+
+```mermaid
+flowchart LR
+  User["User request"] --> Search["search_capabilities"]
+  Search --> Name["Copy the complete capability name"]
+  Name --> Execute["execute_capability"]
+  Execute --> Result["MCP result"]
+```
+
+When calling `execute_capability`, use the complete `name` returned by
+`search_capabilities`, such as
+`platform:springbrand@0:springbrand.resources.list`. Do not replace it with
+the shorter `action_id`, such as `springbrand.resources.list`.
 
 ## Configuration
 
-The default configuration is in
+The bundled defaults are defined in
 [`springbrand.cordis.yml`](./springbrand.cordis.yml):
 
 | Field | Description | Default |
 | --- | --- | --- |
-| `serverName` | Namespace used for MCP tool names | Required |
-| `url` | HTTPS Streamable HTTP MCP endpoint | Required |
-| `credentialRef` | DSH credential reference | `DSH_MCP_OAUTH_<SERVER>` |
+| `serverName` | Namespace used in registered DSH tool names | `springbrand` |
+| `url` | HTTPS Streamable HTTP MCP endpoint | `https://connector.springbrand.ai/mcp` |
+| `credentialRef` | DSH credential reference | `SPRINGBRAND_MCP_OAUTH_PRODUCTION` |
 | `scope` | Optional OAuth scope | Discovered from the server |
-| `callbackPort` | Loopback callback port; `0` chooses a free port | `0` |
+| `callbackPort` | Loopback callback port; `0` selects a free port | `0` |
 | `authorizationTimeoutMs` | Browser authorization timeout | `300000` |
 | `toolCallTimeoutMs` | Timeout for one MCP tool call | `60000` |
 | `failOnStartupError` | Fail activation when the first connection fails | `true` |
 | `reconnect` | Exponential reconnect policy | Enabled |
 
-The plugin currently supports Streamable HTTP and MCP tools only. It does not
-include stdio, resources, prompts, or marketplace publication configuration.
+To use another OAuth-enabled Streamable HTTP MCP server, edit the bundle
+configuration before installation and change `id`, `serverName`, `url`, and
+`credentialRef`. Each `serverName` must be unique within one DSH process.
 
-## Development checks
+## Security notes
+
+- OAuth state is stored through the DSH credential service, not in this
+  repository.
+- The callback listener binds to the local loopback interface.
+- Do not configure an `Authorization` header; the OAuth client owns it.
+- Never commit access tokens, refresh tokens, or exported credential data.
+
+## Development and self-check
 
 ```sh
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm pack --dry-run
 ```
 
-`src/connection.ts` and `src/tools.ts` are adapted from DeepSeek Harness
+For a DSH load-level check, install the checkout into a profile and start it.
+Complete the OAuth login when prompted:
+
+```sh
+PLUGIN_DIR="$PWD"
+npx --yes @deepseek-ai/dsh@latest plugin --profile headless add "$PLUGIN_DIR"
+npx --yes @deepseek-ai/dsh@latest --profile headless "hi"
+```
+
+## Ecosystem metadata
+
+- Package name: `@dsh-external/dsh-oauth-mcp-client`
+- Discovery topic: `dsh-plugin`
+- Directory: [Awesome DSH Plugins](https://github.com/AdamPlatin123/awesome-dsh-plugins)
+
+## License
+
+MIT. `src/connection.ts` and `src/tools.ts` are adapted from DeepSeek Harness
 `@deepseek-ai/dsh-mcp-client` under the MIT License.

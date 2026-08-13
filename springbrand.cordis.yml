@@ -1,6 +1,6 @@
 - insert:
     - id: springbrand-mcp-oauth
-      name: '@springbrand/dsh-oauth-mcp-client'
+      name: '@dsh-external/dsh-oauth-mcp-client'
       config:
         serverName: springbrand
         url: https://connector.springbrand.ai/mcp

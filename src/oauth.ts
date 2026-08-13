@@ -5,7 +5,6 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Context } from '@deepseek-ai/cordis'
-import { credentialRef, type CredentialRef } from '@deepseek-ai/dsh-credentials'
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { OAuthClientProvider, OAuthDiscoveryState } from '@modelcontextprotocol/sdk/client/auth.js'
 import {
@@ -17,6 +16,7 @@ import {
   type OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js'
 import { z } from 'zod'
+import { credentialRef, type CredentialRef } from './dsh.js'
 import type { ResolvedConfig } from './index.js'
 
 const CALLBACK_PATH = '/oauth/callback'
