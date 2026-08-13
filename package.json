@@ -10,18 +10,26 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": "./lib/client.js",
+    "./web-manager": {
+      "types": "./lib/web-manager.d.ts",
+      "default": "./lib/web-manager.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "lib/**/*.js",
+    "lib/**/*.js.map",
     "lib/**/*.d.ts",
     "README.md",
     "README.zh-CN.md",
     "springbrand.cordis.yml"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json",
+    "build": "pnpm run build:host && pnpm run build:client",
+    "build:host": "tsc -p tsconfig.build.json",
+    "build:client": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
     "test": "vitest run",
     "prepare": "pnpm run build"
   },
@@ -46,20 +54,50 @@
   "dsh": {
     "bundle": {
       "patch": "./springbrand.cordis.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-locale"
+      ]
     }
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
     "@modelcontextprotocol/sdk": "1.29.0",
+    "yaml": "^2.8.1",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-credentials": "*",
+    "@deepseek-ai/dsh-client-connection": "*",
+    "@deepseek-ai/dsh-client-locale": "*",
+    "@deepseek-ai/dsh-client-runtime": "*",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "*",
+    "@deepseek-ai/dsh-system-prompt": "*",
     "@deepseek-ai/dsh-tools": "*"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-credentials": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-connection": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-runtime": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-settings-plugins": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-system-prompt": {
       "optional": true
     },
     "@deepseek-ai/dsh-tools": {
@@ -69,6 +107,9 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   }

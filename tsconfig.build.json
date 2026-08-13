@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["tests"]
+  "exclude": ["tests", "src/client.tsx"]
 }

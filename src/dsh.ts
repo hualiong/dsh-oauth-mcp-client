@@ -43,9 +43,14 @@ export interface ToolRuntime {
   register(definition: ToolDefinition): () => void
 }
 
+export interface SystemPromptRegistry {
+  section(section: { name: string; order: number; text: string }): () => void
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     credentials: CredentialProvider
+    systemPrompt: SystemPromptRegistry
     tools: ToolRuntime
   }
 }

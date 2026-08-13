@@ -17,6 +17,8 @@ Springbrand 生产 MCP Gateway。
 - 通过 DSH credential service 保存令牌和客户端元数据
 - 支持自动重连的 Streamable HTTP transport
 - MCP 工具发现、注册和调用
+- 在 DSH Web 中管理连接并查看实时状态和能力
+- 一键持久化连接配置并进入浏览器 OAuth
 
 ## 环境要求
 
@@ -47,7 +49,9 @@ npx --yes @deepseek-ai/dsh@latest web
 本仓库目前没有发布到 npm，因此使用本地 checkout 安装。把这个 bundle 添加到 profile
 时，默认的 Springbrand MCP 连接也会自动添加，不需要再执行一次 MCP 注册操作。
 
-首次启动会打开浏览器进行 Springbrand 登录和授权。授权成功后，可以用以下工具验证连接：
+首次启动会打开浏览器进行 Springbrand 登录和授权。授权成功后，打开
+**设置 → 插件 → MCP 连接**，即可查看实时连接状态和已经注册的能力。也可以用以下工具
+验证默认连接：
 
 - `mcp__springbrand__search_capabilities`
 - `mcp__springbrand__execute_capability`
@@ -74,6 +78,25 @@ flowchart LR
 例如 `platform:springbrand@0:springbrand.resources.list`。不要改用较短的
 `action_id`，例如 `springbrand.resources.list`。
 
+插件会自动把这条工具选择规则加入 Agent 指引，因此用户只需正常描述需求，不必手动指定
+工具调用。
+
+## 在 DSH Web 中管理连接
+
+打开 **设置 → 插件 → MCP 连接**，填写唯一的服务名和服务端 HTTPS MCP 地址，然后点击
+**添加并登录**。在自动打开的浏览器中完成 OAuth。DSH 会加载新连接，页面随后显示实时状态和
+实际注册的工具能力。
+
+该按钮会把连接永久写入 `~/.dsh/profiles/web/cordis.patch.yml`。重启 DSH 后连接仍然存在，
+不需要临时的 `--patch` 命令。
+
+```mermaid
+flowchart LR
+  Add["添加并登录"] --> Config["Web profile 永久配置"]
+  Config --> OAuth["浏览器 OAuth"]
+  OAuth --> Tools["DSH Web 展示已连接工具"]
+```
+
 ## 配置
 
 默认配置位于 [`springbrand.cordis.yml`](./springbrand.cordis.yml)：
@@ -90,9 +113,9 @@ flowchart LR
 | `failOnStartupError` | 首次连接失败时终止激活 | `true` |
 | `reconnect` | 指数退避重连策略 | 已启用 |
 
-## 添加另一个 MCP 服务
+## 手动配置
 
-安装插件后，把连接配置写入 Web profile 的永久配置文件
+Web 页面是默认配置方式。如果需要手动配置，把连接添加到同一个 Web profile 永久配置文件
 `~/.dsh/profiles/web/cordis.patch.yml`：
 
 ```yaml

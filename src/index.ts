@@ -15,6 +15,7 @@ import type {} from './dsh.js'
 import { createOAuthRuntime } from './oauth.js'
 import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from './connection.js'
 import type { ReconnectConfig } from './connection.js'
+import { registerConnection } from './registry.js'
 
 export type { McpResult } from './tools.js'
 export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.js'
@@ -95,6 +96,15 @@ export function defaultCredentialRef(serverName: string): string {
   return `DSH_MCP_OAUTH_${serverName.toUpperCase().replaceAll('-', '_')}`
 }
 
+/** Model guidance for discovering and executing capabilities from one MCP server. */
+export function mcpGuidance(serverName: string): string {
+  const prefix = `mcp__${serverName}__`
+  return `Use tools beginning with ${prefix} when the user asks about this MCP server. `
+    + `When ${prefix}search_capabilities is available, call it before claiming that no matching capability exists. `
+    + `When calling ${prefix}execute_capability, pass the complete capability name returned by search_capabilities, not a shorter action_id. `
+    + 'Present the returned capabilities or execution result clearly to the user.'
+}
+
 /** Resolve defaults and reject unsafe or internally conflicting configuration. */
 export function resolveConfig(config: Config): ResolvedConfig {
   if (!SERVER_NAME_PATTERN.test(config.serverName)) {
@@ -163,10 +173,21 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     return () => void names.delete(resolved.serverName)
   }, 'dsh-oauth-mcp-client.serverName')
 
+  const reporter = registerConnection(ctx.root, resolved)
+  ctx.effect(() => () => { reporter.dispose() }, 'dsh-oauth-mcp-client.web-projection')
+
+  ctx.inject(['systemPrompt'], (promptCtx) => {
+    promptCtx.systemPrompt.section({
+      name: `tool:mcp:${resolved.serverName}`,
+      order: 118,
+      text: mcpGuidance(resolved.serverName),
+    })
+  })
+
   const oauth = await createOAuthRuntime(ctx, resolved)
   ctx.effect(() => () => oauth.dispose(), 'dsh-oauth-mcp-client.oauth')
 
-  const connection = startConnection(ctx, resolved, reconnect, oauth)
+  const connection = startConnection(ctx, resolved, reconnect, oauth, reporter)
   ctx.effect(() => () => connection.dispose(), 'dsh-oauth-mcp-client.connection')
 
   const outcome = await connection.ready

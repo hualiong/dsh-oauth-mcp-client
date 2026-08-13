@@ -18,6 +18,8 @@ configuration connects to the Springbrand production MCP Gateway.
 - Token and client metadata storage through the DSH credential service
 - Streamable HTTP transport with automatic reconnects
 - MCP tool discovery, registration, and execution
+- DSH Web connection management with live status and capability discovery
+- One-click persistent connection setup followed by browser OAuth
 
 ## Requirements
 
@@ -50,7 +52,9 @@ local checkout. Adding the bundle to the profile also adds the bundled
 Springbrand MCP connection; there is no separate MCP registration step.
 
 The first startup opens a browser for Springbrand login and consent. After
-authorization, use these registered tools to verify the connection:
+authorization, open **Settings → Plugins → MCP Connections** to see the live
+connection status and registered capabilities. You can also use these tools to
+verify the bundled connection:
 
 - `mcp__springbrand__search_capabilities`
 - `mcp__springbrand__execute_capability`
@@ -78,6 +82,27 @@ When calling `execute_capability`, use the complete `name` returned by
 `platform:springbrand@0:springbrand.resources.list`. Do not replace it with
 the shorter `action_id`, such as `springbrand.resources.list`.
 
+The plugin adds this tool-selection guidance to the agent automatically, so a
+normal user request is sufficient; manual tool invocation is not required.
+
+## Manage connections in DSH Web
+
+Open **Settings → Plugins → MCP Connections**, enter a unique server name and
+the server's HTTPS MCP URL, then select **Add and sign in**. Complete the OAuth
+flow in the browser that opens. DSH loads the new connection and the page shows
+its live status and actual registered tools.
+
+The button writes the connection permanently to
+`~/.dsh/profiles/web/cordis.patch.yml`. Restarting DSH keeps the connection;
+there is no temporary `--patch` command.
+
+```mermaid
+flowchart LR
+  Add["Add and sign in"] --> Config["Permanent Web profile config"]
+  Config --> OAuth["Browser OAuth"]
+  OAuth --> Tools["Connected tools in DSH Web"]
+```
+
 ## Configuration
 
 The bundled defaults are defined in
@@ -95,10 +120,11 @@ The bundled defaults are defined in
 | `failOnStartupError` | Fail activation when the first connection fails | `true` |
 | `reconnect` | Exponential reconnect policy | Enabled |
 
-## Add another MCP server
+## Manual configuration
 
-After installing the plugin, add the connection to the permanent Web profile
-configuration at `~/.dsh/profiles/web/cordis.patch.yml`:
+The Web page is the default setup path. To configure a connection manually,
+add it to the same permanent Web profile file at
+`~/.dsh/profiles/web/cordis.patch.yml`:
 
 ```yaml
 - insert:

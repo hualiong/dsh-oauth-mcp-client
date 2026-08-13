@@ -1,4 +1,9 @@
 - insert:
+    - id: oauth-mcp-web-manager
+      name: '@dsh-external/dsh-oauth-mcp-client/web-manager'
+      config:
+        profilePatchPath: !!js dshHomePath('profiles/web/cordis.patch.yml')
+
     - id: springbrand-mcp-oauth
       name: '@dsh-external/dsh-oauth-mcp-client'
       config:

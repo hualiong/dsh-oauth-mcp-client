@@ -19,6 +19,7 @@ import { z } from 'zod'
 import type { Context } from '@deepseek-ai/cordis'
 import { assertSupportedJsonSchema } from './dsh.js'
 import type { JsonSchemaNode, JsonValue, ToolDefinition, ToolExecution } from './dsh.js'
+import type { McpCapability } from './registry.js'
 
 /** Resolved options relevant to tool bridging. */
 export interface ToolBridgeOptions {
@@ -26,6 +27,8 @@ export interface ToolBridgeOptions {
   registrationFailure: 'contain' | 'throw'
   serverName: string
   toolCallTimeoutMs: number
+  /** Publish the exact successfully registered capability generation. */
+  onCapabilities?: (capabilities: readonly McpCapability[]) => void
 }
 
 /** State for one sync generation: the current set of disposers keyed by public name. */
@@ -165,10 +168,15 @@ export async function syncTools(
     // registration occupies this server's namespace. Roll back so the model
     // sees either the full generation or none of it — never a partial set.
     for (const dispose of disposers.values()) dispose()
+    opts.onCapabilities?.([])
     ctx.logger.error(`dsh-oauth-mcp-client(${opts.serverName}): tool registration failed, no tools registered: ${String(error)}`)
     if (opts.registrationFailure === 'throw') throw error
     return new Map()
   }
+  opts.onCapabilities?.([...definitions.values()].map(definition => ({
+    name: definition.name,
+    description: definition.description,
+  })))
   return disposers
 }
 
