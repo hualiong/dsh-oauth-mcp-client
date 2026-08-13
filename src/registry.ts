@@ -14,6 +14,7 @@ export interface McpCapability {
 
 /** Serializable connection state returned to the browser. */
 export interface McpConnectionView {
+  entryId: string
   serverName: string
   url: string
   status: ConnectionStatus
@@ -42,9 +43,10 @@ function registry(root: Context): Map<string, MutableConnectionView> {
 }
 
 /** Register one configured connection in the root-owned Web projection. */
-export function registerConnection(root: Context, config: ResolvedConfig): ConnectionReporter {
+export function registerConnection(root: Context, config: ResolvedConfig, entryId: string): ConnectionReporter {
   const entries = registry(root)
   const view: MutableConnectionView = {
+    entryId,
     serverName: config.serverName,
     url: config.url,
     status: 'connecting',

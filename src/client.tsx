@@ -58,6 +58,10 @@ const zh = {
   add: '添加并登录',
   adding: '正在添加…',
   added: '配置已写入。请在自动打开的浏览器中完成登录。',
+  remove: '移除',
+  removing: '正在移除…',
+  removeConfirm: '确定移除 {serverName}？该连接及其工具将从 DSH 中卸载。',
+  removed: '连接已从永久配置中移除。',
   loading: '正在读取连接…',
   empty: '还没有 OAuth MCP 连接。',
   retry: '重试',
@@ -83,6 +87,10 @@ const en: Record<LocaleKey, string> = {
   add: 'Add and sign in',
   adding: 'Adding…',
   added: 'The permanent configuration was added. Complete sign-in in the browser that opened.',
+  remove: 'Remove',
+  removing: 'Removing…',
+  removeConfirm: 'Remove {serverName}? The connection and its tools will be unloaded from DSH.',
+  removed: 'The connection was removed from the permanent configuration.',
   loading: 'Loading connections…',
   empty: 'No OAuth MCP connections yet.',
   retry: 'Retry',
@@ -135,18 +143,20 @@ async function unwrap(call: Promise<RpcResult>): Promise<unknown> {
 interface McpConnectionsInjected {
   list(): Promise<ConnectionSnapshot>
   add(input: { serverName: string; url: string }): Promise<void>
+  remove(serverName: string): Promise<void>
 }
 
 interface McpConnectionsProps extends McpConnectionsInjected {
   t(key: LocaleKey): string
 }
 
-function McpConnectionsTab({ list, add, t }: McpConnectionsProps): ReactNode {
+function McpConnectionsTab({ list, add, remove, t }: McpConnectionsProps): ReactNode {
   const [snapshot, setSnapshot] = useState<ConnectionSnapshot>()
   const [loadError, setLoadError] = useState('')
   const [serverName, setServerName] = useState('')
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState('')
   const [notice, setNotice] = useState('')
 
   const refresh = useCallback(async () => {
@@ -178,6 +188,21 @@ function McpConnectionsTab({ list, add, t }: McpConnectionsProps): ReactNode {
       setNotice(error instanceof Error ? error.message : String(error))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const removeConnection = async (name: string): Promise<void> => {
+    if (!window.confirm(t('removeConfirm').replace('{serverName}', name))) return
+    setRemoving(name)
+    setNotice('')
+    try {
+      await remove(name)
+      setNotice(t('removed'))
+      await refresh()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error))
+    } finally {
+      setRemoving('')
     }
   }
 
@@ -227,6 +252,9 @@ function McpConnectionsTab({ list, add, t }: McpConnectionsProps): ReactNode {
         <article key={connection.serverName}>
           <h4>{connection.serverName} — {t(connection.status)}</h4>
           <p><code>{connection.url}</code></p>
+          <button type="button" disabled={Boolean(removing)} onClick={() => { void removeConnection(connection.serverName) }}>
+            {removing === connection.serverName ? t('removing') : t('remove')}
+          </button>
           {connection.error ? <p role="alert">{connection.error}</p> : null}
           <details open={connection.capabilities.length > 0}>
             <summary>{t('capabilities')} ({connection.capabilities.length})</summary>
@@ -260,6 +288,9 @@ export function apply(ctx: ClientContext): void {
     },
     async add(input) {
       await unwrap(ctx.connection.rpc.call(CHANNEL, 'connections/add', input))
+    },
+    async remove(serverName) {
+      await unwrap(ctx.connection.rpc.call(CHANNEL, 'connections/remove', { serverName }))
     },
   }
 

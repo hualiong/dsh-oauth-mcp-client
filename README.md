@@ -90,7 +90,8 @@ normal user request is sufficient; manual tool invocation is not required.
 Open **Settings → Plugins → MCP Connections**, enter a unique server name and
 the server's HTTPS MCP URL, then select **Add and sign in**. Complete the OAuth
 flow in the browser that opens. DSH loads the new connection and the page shows
-its live status and actual registered tools.
+its live status and actual registered tools. Select **Remove** on a connection
+to unload its tools and remove or disable it in the permanent profile.
 
 The button writes the connection permanently to
 `~/.dsh/profiles/web/cordis.patch.yml`. Restarting DSH keeps the connection;

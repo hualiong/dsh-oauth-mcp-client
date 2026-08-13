@@ -6,7 +6,7 @@ import z from '@deepseek-ai/schemastery'
 import type {} from './dsh-web.js'
 import type { RpcResult } from './dsh-web.js'
 import { resolveConfig } from './index.js'
-import { addConnectionConfig } from './profile-config.js'
+import { addConnectionConfig, removeConnectionConfig } from './profile-config.js'
 import { listConnections } from './registry.js'
 
 const CHANNEL = '/dsh-oauth-mcp'
@@ -62,6 +62,13 @@ function parseAddRequest(payload: unknown): { serverName: string; url: string } 
   return { serverName: resolved.serverName, url: resolved.url }
 }
 
+function parseRemoveRequest(payload: unknown): string {
+  if (!isRecord(payload) || typeof payload.serverName !== 'string' || !payload.serverName) {
+    throw new TypeError('serverName is required')
+  }
+  return payload.serverName
+}
+
 /** Register the browser manager's loopback-only RPC channel. */
 export function apply(ctx: Context, config: Config): void {
   if (!isAbsolute(config.profilePatchPath)) {
@@ -71,6 +78,22 @@ export function apply(ctx: Context, config: Config): void {
   ctx.effect(() => ctx.connection.rpc.handle(CHANNEL, async (endpoint, payload) => {
     if (endpoint === 'connections/list') {
       return { ok: true, value: { connections: listConnections(ctx.root) } }
+    }
+    if (endpoint === 'connections/remove') {
+      let serverName: string
+      try {
+        serverName = parseRemoveRequest(payload)
+      } catch (error) {
+        return badRequest(error instanceof Error ? error.message : String(error))
+      }
+      const connection = listConnections(ctx.root).find(entry => entry.serverName === serverName)
+      if (!connection) return badRequest(`MCP connection "${serverName}" does not exist`)
+      try {
+        await removeConnectionConfig(config.profilePatchPath, connection)
+        return { ok: true, value: { removed: serverName } }
+      } catch (error) {
+        return internal(error)
+      }
     }
     if (endpoint !== 'connections/add') return badRequest(`unknown endpoint ${JSON.stringify(endpoint)}`)
 

@@ -173,7 +173,9 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     return () => void names.delete(resolved.serverName)
   }, 'dsh-oauth-mcp-client.serverName')
 
-  const reporter = registerConnection(ctx.root, resolved)
+  const entryId = (ctx.fiber as typeof ctx.fiber & { entry?: { options?: { id?: unknown } } }).entry?.options?.id
+  if (typeof entryId !== 'string' || !entryId) throw new Error('dsh-oauth-mcp-client: loader entry id is required')
+  const reporter = registerConnection(ctx.root, resolved, entryId)
   ctx.effect(() => () => { reporter.dispose() }, 'dsh-oauth-mcp-client.web-projection')
 
   ctx.inject(['systemPrompt'], (promptCtx) => {

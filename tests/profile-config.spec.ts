@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
-import { addConnectionConfig } from '../src/profile-config.js'
+import { addConnectionConfig, removeConnectionConfig } from '../src/profile-config.js'
 
 const roots: string[] = []
 
@@ -53,5 +53,29 @@ describe('permanent profile configuration', () => {
       url: 'https://mcp.example.com/mcp',
     })).rejects.toThrow('already exists')
     expect(readFileSync(path, 'utf8')).toBe(source)
+  })
+
+  it('removes a user-inserted connection without rebuilding the remaining patch', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-oauth-mcp-'))
+    roots.push(root)
+    const path = join(root, 'cordis.patch.yml')
+    writeFileSync(path, '- insert:\n    - id: oauth-mcp-example\n      name: plugin\n      config:\n        serverName: example\n# keep this comment\n- id: other\n  disabled: true\n')
+
+    await removeConnectionConfig(path, { serverName: 'example', entryId: 'oauth-mcp-example' })
+
+    const source = readFileSync(path, 'utf8')
+    expect(source).toContain('# keep this comment')
+    expect(parse(source)).toEqual([{ id: 'other', disabled: true }])
+  })
+
+  it('disables a bundle connection in the permanent profile patch', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-oauth-mcp-'))
+    roots.push(root)
+    const path = join(root, 'cordis.patch.yml')
+    writeFileSync(path, '[]\n')
+
+    await removeConnectionConfig(path, { serverName: 'springbrand', entryId: 'springbrand-mcp-oauth' })
+
+    expect(parse(readFileSync(path, 'utf8'))).toEqual([{ id: 'springbrand-mcp-oauth', disabled: true }])
   })
 })

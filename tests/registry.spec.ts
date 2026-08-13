@@ -17,12 +17,13 @@ const config: ResolvedConfig = {
 describe('Web connection projection', () => {
   it('publishes lifecycle and capability changes as detached snapshots', () => {
     const root = {} as Context
-    const reporter = registerConnection(root, config)
+    const reporter = registerConnection(root, config, 'springbrand-mcp-oauth')
     reporter.setStatus('connected')
     reporter.setCapabilities([{ name: 'mcp__springbrand__search_capabilities', description: 'Search capabilities' }])
 
     const snapshot = listConnections(root)
     expect(snapshot).toEqual([{
+      entryId: 'springbrand-mcp-oauth',
       serverName: 'springbrand',
       url: 'https://connector.springbrand.ai/mcp',
       status: 'connected',
