@@ -5,8 +5,8 @@ the native `dsh-mcp-client` tool discovery, registration, execution, and
 reconnection behavior while adding MCP SDK OAuth, PKCE, dynamic client
 registration, browser authorization, a loopback callback, and token storage.
 
-The bundled configuration connects to the Springbrand development Gateway at
-`https://devconnector.springbrand.ai/mcp`. This package can be installed
+The bundled configuration connects to the Springbrand production Gateway at
+`https://connector.springbrand.ai/mcp`. This package can be installed
 directly from a local checkout and does not depend on a plugin marketplace.
 
 ```mermaid
@@ -44,7 +44,8 @@ consent, DSH registers these tools:
 - `mcp__springbrand__execute_capability`
 
 OAuth tokens, dynamic registration data, and the discovery cache are stored
-through the DSH credential service under `SPRINGBRAND_MCP_OAUTH` by default.
+through the DSH credential service under `SPRINGBRAND_MCP_OAUTH_PRODUCTION` in
+the bundled production configuration.
 Do not add an `Authorization` header to the YAML configuration.
 
 ## Configuration
