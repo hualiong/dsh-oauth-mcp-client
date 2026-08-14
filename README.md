@@ -10,6 +10,11 @@ client registration, browser authorization, a loopback callback, persistent
 token storage, reconnect handling, and MCP tool registration. The bundled
 configuration connects to the Springbrand production MCP Gateway.
 
+This plugin is maintained by [SpringBrand](https://springbrand.ai), an
+AI-assisted marketplace for business services. See the
+[SpringBrand DeepSeek Harness page](https://springbrand.ai/deepseek-harness)
+for product information.
+
 ## Features
 
 - OAuth 2.1 authorization code flow with PKCE

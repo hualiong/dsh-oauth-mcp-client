@@ -9,6 +9,10 @@
 本地回调、令牌持久化、断线重连和 MCP 工具注册。仓库自带的默认配置连接
 Springbrand 生产 MCP Gateway。
 
+本插件由 [SpringBrand](https://springbrand.ai) 维护。SpringBrand 是面向商业服务的
+AI 辅助服务市场；产品信息请参阅
+[SpringBrand DeepSeek Harness 专页](https://springbrand.ai/deepseek-harness)。
+
 ## 功能
 
 - 使用 PKCE 的 OAuth 2.1 授权码流程
