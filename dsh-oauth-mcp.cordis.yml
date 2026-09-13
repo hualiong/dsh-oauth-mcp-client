@@ -1,0 +1,22 @@
+# Bundle patch for @dsh-external/dsh-oauth-mcp-client.
+#
+# This patch is INTENTIONALLY EMPTY. Installing this package activates nothing:
+# no MCP endpoint, no credential, no browser flow. Every connection is declared
+# by you in the profile patch layer instead:
+#
+#   ~/.dsh/profiles/<profile>/cordis.patch.yml
+#
+# Example entry to add there (serverName must be unique in the DSH process):
+#
+#   - insert:
+#       - id: oauth-mcp-example
+#         name: '@dsh-external/dsh-oauth-mcp-client'
+#         config:
+#           serverName: example
+#           url: https://mcp.example.com/mcp
+#           credentialRef: EXAMPLE_MCP_OAUTH
+#           failOnStartupError: false
+#
+# Keeping this file as a valid empty array (rather than deleting it) preserves
+# the standard DSH bundle contract declared by `dsh.bundle.patch`.
+[]
