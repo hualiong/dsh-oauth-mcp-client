@@ -4,9 +4,9 @@ import { mcpGuidance, type ResolvedConfig } from '../src/index.js'
 import { listConnections, registerConnection } from '../src/registry.js'
 
 const config: ResolvedConfig = {
-  serverName: 'springbrand',
-  url: 'https://connector.springbrand.ai/mcp',
-  credentialRef: 'SPRINGBRAND_MCP_OAUTH_PRODUCTION',
+  serverName: 'example',
+  url: 'https://mcp.example.com/mcp',
+  credentialRef: 'EXAMPLE_MCP_OAUTH',
   headers: {},
   callbackPort: 0,
   authorizationTimeoutMs: 300_000,
@@ -17,17 +17,17 @@ const config: ResolvedConfig = {
 describe('Web connection projection', () => {
   it('publishes lifecycle and capability changes as detached snapshots', () => {
     const root = {} as Context
-    const reporter = registerConnection(root, config, 'springbrand-mcp-oauth')
+    const reporter = registerConnection(root, config, 'example-mcp-oauth')
     reporter.setStatus('connected')
-    reporter.setCapabilities([{ name: 'mcp__springbrand__search_capabilities', description: 'Search capabilities' }])
+    reporter.setCapabilities([{ name: 'mcp__example__search', description: 'Search records' }])
 
     const snapshot = listConnections(root)
     expect(snapshot).toEqual([{
-      entryId: 'springbrand-mcp-oauth',
-      serverName: 'springbrand',
-      url: 'https://connector.springbrand.ai/mcp',
+      entryId: 'example-mcp-oauth',
+      serverName: 'example',
+      url: 'https://mcp.example.com/mcp',
       status: 'connected',
-      capabilities: [{ name: 'mcp__springbrand__search_capabilities', description: 'Search capabilities' }],
+      capabilities: [{ name: 'mcp__example__search', description: 'Search records' }],
     }])
 
     snapshot[0]!.capabilities.length = 0
@@ -36,10 +36,10 @@ describe('Web connection projection', () => {
     expect(listConnections(root)).toEqual([])
   })
 
-  it('guides capability search and exact-name execution', () => {
-    const guidance = mcpGuidance('springbrand')
-    expect(guidance).toContain('mcp__springbrand__search_capabilities')
-    expect(guidance).toContain('complete capability name')
-    expect(guidance).toContain('not a shorter action_id')
+  it('namespaces model guidance by server without assuming any tool', () => {
+    const guidance = mcpGuidance('example')
+    expect(guidance).toContain('mcp__example__')
+    expect(guidance).toContain('best match the request')
+    expect(guidance).toContain('does not expose it')
   })
 })

@@ -49,7 +49,16 @@ export interface Config {
   authorizationTimeoutMs?: number
   /** Per-tool MCP request timeout. */
   toolCallTimeoutMs?: number
-  /** Reject plugin activation if the first connect/auth/sync attempt fails. */
+  /**
+   * Fail plugin activation when the first connect/auth/sync attempt fails.
+   *
+   * Defaults to `false` on purpose: a DSH loader entry whose `apply()` rejects
+   * can prevent the whole application from starting, and "server unreachable"
+   * or "authorization not finished yet" are ordinary runtime conditions. With
+   * `false` those are logged and retried by the reconnect policy instead of
+   * taking DSH down. Set `true` only when a wrong configuration must be caught
+   * immediately and you accept that a failed startup blocks DSH.
+   */
   failOnStartupError?: boolean
   /** Automatic reconnect policy after a lost MCP connection. */
   reconnect?: ReconnectConfig
@@ -85,7 +94,7 @@ export const Config: z<Config> = z.object({
   callbackPort: z.number().step(1).min(0).max(65_535).default(0),
   authorizationTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_AUTHORIZATION_TIMEOUT_MS),
   toolCallTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
-  failOnStartupError: z.boolean().default(true),
+  failOnStartupError: z.boolean().default(false),
   reconnect: Reconnect,
 })
 
@@ -96,13 +105,12 @@ export function defaultCredentialRef(serverName: string): string {
   return `DSH_MCP_OAUTH_${serverName.toUpperCase().replaceAll('-', '_')}`
 }
 
-/** Model guidance for discovering and executing capabilities from one MCP server. */
+/** Model guidance for discovering and executing tools from one MCP server. */
 export function mcpGuidance(serverName: string): string {
   const prefix = `mcp__${serverName}__`
-  return `Use tools beginning with ${prefix} when the user asks about this MCP server. `
-    + `When ${prefix}search_capabilities is available, call it before claiming that no matching capability exists. `
-    + `When calling ${prefix}execute_capability, pass the complete capability name returned by search_capabilities, not a shorter action_id. `
-    + 'Present the returned capabilities or execution result clearly to the user.'
+  return `Tools whose names begin with ${prefix} are provided by the "${serverName}" MCP server. `
+    + 'Pick the tool whose name and description best match the request, and pass arguments exactly as that tool schema requires. '
+    + `If no ${prefix} tool covers the request, say that this MCP server does not expose it rather than inventing a tool name.`
 }
 
 /** Resolve defaults and reject unsafe or internally conflicting configuration. */
@@ -149,7 +157,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     callbackPort,
     authorizationTimeoutMs,
     toolCallTimeoutMs,
-    failOnStartupError: config.failOnStartupError ?? true,
+    failOnStartupError: config.failOnStartupError ?? false,
   })
 }
 

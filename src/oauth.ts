@@ -310,7 +310,7 @@ export async function createOAuthRuntime(
   openAuthorization: (url: URL) => Promise<void> = openBrowser,
 ): Promise<OAuthRuntime> {
   let runtime: OAuthRuntimeImpl | undefined
-  const server = createServer((request, response) => {
+  const handler = (request: IncomingMessage, response: ServerResponse): void => {
     if (!runtime) {
       respond(response, 503, FAILURE_HTML)
       return
@@ -319,19 +319,41 @@ export async function createOAuthRuntime(
       if (!response.headersSent) respond(response, 500, FAILURE_HTML)
       else response.destroy()
     })
-  })
+  }
 
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(config.callbackPort, '127.0.0.1', () => {
-      server.off('error', reject)
-      resolve()
-    })
-  })
+  const host = '127.0.0.1'
+  let server = createServer(handler)
+  try {
+    await listen(server, config.callbackPort, host)
+  } catch (error) {
+    // A pinned callbackPort keeps the redirect_uri stable across restarts,
+    // which some authorization servers require. If that port is taken we must
+    // still not reject: a throwing apply() can stop DSH from starting at all.
+    // An ephemeral port keeps DSH alive and authorization still works — the
+    // only cost is a renewed dynamic client registration.
+    ctx.logger.warn(
+      `dsh-oauth-mcp-client(${config.serverName}): callback port ${String(config.callbackPort)} is unavailable `
+      + `(${error instanceof Error ? error.message : String(error)}); falling back to an ephemeral port — `
+      + 'the redirect_uri changes, so dynamic client registration is renewed',
+    )
+    server = createServer(handler)
+    await listen(server, 0, host)
+  }
   const address = server.address() as AddressInfo
   const redirectUrl = new URL(`http://127.0.0.1:${String(address.port)}${CALLBACK_PATH}`)
   runtime = new OAuthRuntimeImpl(ctx, config, server, openAuthorization, redirectUrl)
   return runtime
+}
+
+/** Bind the callback listener; rejects with the underlying listen error. */
+function listen(server: Server, port: number, host: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(port, host, () => {
+      server.off('error', reject)
+      resolve()
+    })
+  })
 }
 
 function respond(response: ServerResponse, status: number, body: string): void {

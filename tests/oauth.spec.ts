@@ -1,3 +1,5 @@
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { describe, expect, it, vi } from 'vitest'
@@ -44,6 +46,30 @@ describe('OAuth loopback flow', () => {
       expect(finishAuth).toHaveBeenCalledWith('valid-code')
     } finally {
       await accepted.dispose()
+    }
+  })
+
+  it('falls back to an ephemeral port instead of throwing when the pinned port is taken', async () => {
+    const blocker = createServer(() => {})
+    await new Promise<void>((resolve) => { blocker.listen(0, '127.0.0.1', () => { resolve() }) })
+    const taken = (blocker.address() as AddressInfo).port
+
+    const pinned = resolveConfig({
+      serverName: 'test',
+      url: 'https://mcp.example.com/mcp',
+      callbackPort: taken,
+    })
+
+    // A throwing apply() can stop DSH from starting, so a taken port must
+    // degrade to an ephemeral one rather than reject.
+    const runtime = await createOAuthRuntime(new Context(), pinned, async () => {})
+    try {
+      const redirect = new URL(runtime.provider.redirectUrl!)
+      expect(Number(redirect.port)).not.toBe(taken)
+      expect(redirect.hostname).toBe('127.0.0.1')
+    } finally {
+      await runtime.dispose()
+      await new Promise<void>((resolve) => { blocker.close(() => { resolve() }) })
     }
   })
 })
