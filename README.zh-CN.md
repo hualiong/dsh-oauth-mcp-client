@@ -6,142 +6,142 @@
 的 OAuth 2.1 Streamable HTTP MCP 客户端插件。
 
 它在原生 `dsh-mcp-client` 连接流程上增加了 PKCE、动态客户端注册、浏览器授权、
-本地回调、令牌持久化、断线重连和 MCP 工具注册。仓库自带的默认配置连接
-Springbrand 生产 MCP Gateway。
+本地回调、令牌持久化、断线重连和 MCP 工具注册。
 
-本插件由 [SpringBrand](https://springbrand.ai) 维护。SpringBrand 是面向商业服务的
-AI 辅助服务市场；产品信息请参阅
-[SpringBrand DeepSeek Harness 专页](https://springbrand.ai/deepseek-harness)。
+本插件是**纯宿主侧、纯配置驱动**的：不带任何界面，安装后也不激活任何东西。每一条
+MCP 连接都由你在 profile 补丁层里声明。详见[添加连接](#添加连接)。
 
 ## 功能
 
 - 使用 PKCE 的 OAuth 2.1 授权码流程
-- 动态 OAuth 客户端注册
+- 动态 OAuth 客户端注册与授权服务器发现
 - 浏览器登录与本地回调
 - 通过 DSH credential service 保存令牌和客户端元数据
 - 支持自动重连的 Streamable HTTP transport
 - MCP 工具发现、注册和调用
-- 在 DSH Web 中管理连接并查看实时状态和能力
-- 一键持久化连接配置并进入浏览器 OAuth
+- 无界面、无内置端点、不自动连接：完全由 `cordis.patch.yml` 驱动
 
 ## 环境要求
 
 - Node.js 22.19 或更高版本
-- Git
 - 首次 OAuth 登录所需的浏览器
+- 一个支持 Streamable HTTP 且支持 OAuth 2.1 的 MCP 服务端（需支持动态客户端
+  注册，或你自行固定已注册客户端的 redirect URI）
 
 ## 安装
 
-克隆并构建插件：
+在当前 checkout 中构建插件：
 
 ```sh
-git clone https://github.com/springbrand-lab/dsh-oauth-mcp-client.git
+git clone https://github.com/hualiong/dsh-oauth-mcp-client.git
 cd dsh-oauth-mcp-client
 corepack enable
 pnpm install
 pnpm build
 ```
 
-把已经构建好的当前目录安装到 DSH profile，然后启动 DSH：
+安装到 DSH profile，然后重启 DSH：
 
 ```sh
-PLUGIN_DIR="$PWD"
-npx --yes @deepseek-ai/dsh@latest plugin --profile web add "$PLUGIN_DIR"
-npx --yes @deepseek-ai/dsh@latest web
+npx --yes @deepseek-ai/dsh@latest plugin --profile desktop add "$PWD"
 ```
 
-本仓库目前没有发布到 npm，因此使用本地 checkout 安装。把这个 bundle 添加到 profile
-时，默认的 Springbrand MCP 连接也会自动添加，不需要再执行一次 MCP 注册操作。
+profile 名要填 DSH Desktop 实际加载的那个。本机是 `desktop`，对应
+`~/.dsh/profiles/desktop/`。DSH Desktop 不需要跑 `dsh web`，重启应用即可。
 
-首次启动会打开浏览器进行 Springbrand 登录和授权。授权成功后，打开
-**设置 → 插件 → MCP 连接**，即可查看实时连接状态和已经注册的能力。也可以用以下工具
-验证默认连接：
+## 添加连接
 
-- `mcp__springbrand__search_capabilities`
-- `mcp__springbrand__execute_capability`
-
-## 使用
-
-可以直接让 Agent 搜索 Springbrand capability 目录，例如：
-
-```text
-搜索 Springbrand 市场中的资源，并列出前 10 个。
-```
-
-正常调用流程：
-
-```mermaid
-flowchart LR
-  User["用户请求"] --> Search["search_capabilities"]
-  Search --> Name["复制完整 capability name"]
-  Name --> Execute["execute_capability"]
-  Execute --> Result["MCP 返回结果"]
-```
-
-调用 `execute_capability` 时，必须使用 `search_capabilities` 返回的完整 `name`，
-例如 `platform:springbrand@0:springbrand.resources.list`。不要改用较短的
-`action_id`，例如 `springbrand.resources.list`。
-
-插件会自动把这条工具选择规则加入 Agent 指引，因此用户只需正常描述需求，不必手动指定
-工具调用。
-
-## 在 DSH Web 中管理连接
-
-打开 **设置 → 插件 → MCP 连接**，填写唯一的服务名和服务端 HTTPS MCP 地址，然后点击
-**添加并登录**。在自动打开的浏览器中完成 OAuth。DSH 会加载新连接，页面随后显示实时状态和
-实际注册的工具能力。点击连接上的 **移除**，即可卸载其工具，并在永久 profile 中删除或停用
-该连接。
-
-该按钮会把连接永久写入 `~/.dsh/profiles/web/cordis.patch.yml`。重启 DSH 后连接仍然存在，
-不需要临时的 `--patch` 命令。
-
-```mermaid
-flowchart LR
-  Add["添加并登录"] --> Config["Web profile 永久配置"]
-  Config --> OAuth["浏览器 OAuth"]
-  OAuth --> Tools["DSH Web 展示已连接工具"]
-```
-
-## 配置
-
-默认配置位于 [`springbrand.cordis.yml`](./springbrand.cordis.yml)：
-
-| 字段 | 说明 | 默认值 |
-| --- | --- | --- |
-| `serverName` | 注册到 DSH 的工具命名空间 | `springbrand` |
-| `url` | HTTPS Streamable HTTP MCP 地址 | `https://connector.springbrand.ai/mcp` |
-| `credentialRef` | DSH credential 引用名 | `SPRINGBRAND_MCP_OAUTH_PRODUCTION` |
-| `scope` | 可选 OAuth scope | 由服务端发现 |
-| `callbackPort` | 本地回调端口；`0` 表示自动选择 | `0` |
-| `authorizationTimeoutMs` | 浏览器授权超时 | `300000` |
-| `toolCallTimeoutMs` | 单次 MCP 工具调用超时 | `60000` |
-| `failOnStartupError` | 首次连接失败时终止激活 | `true` |
-| `reconnect` | 指数退避重连策略 | 已启用 |
-
-## 手动配置
-
-Web 页面是默认配置方式。如果需要手动配置，把连接添加到同一个 Web profile 永久配置文件
-`~/.dsh/profiles/web/cordis.patch.yml`：
+在 profile 补丁层 `~/.dsh/profiles/<profile>/cordis.patch.yml` 中追加：
 
 ```yaml
 - insert:
-    - id: my-oauth-mcp
+    - id: oauth-mcp-example
       name: '@dsh-external/dsh-oauth-mcp-client'
       config:
-        serverName: my-mcp
+        serverName: example
         url: https://mcp.example.com/mcp
-        credentialRef: MY_MCP_OAUTH
-        failOnStartupError: true
+        credentialRef: EXAMPLE_MCP_OAUTH
+        failOnStartupError: false
 ```
 
-服务端必须支持 OAuth 和 MCP Streamable HTTP。首次连接时会打开浏览器进行授权。
-同一个 DSH 进程中的 `serverName` 必须唯一，它也会成为工具名的一部分，例如
-`mcp__my-mcp__search`。
+然后重启 DSH Desktop。首次启动会发起连接，服务端返回 `401`，插件随即用系统默认
+浏览器打开授权页面。你确认后，令牌写入 DSH credential service；之后启动都是静默
+重连，只有 refresh token 过期或被撤销时才会再次打开浏览器。
+
+规则：
+
+- `serverName` 在同一个 DSH 进程内必须唯一，且需匹配 `[A-Za-z0-9_-]{1,32}`。
+  它也会成为工具名的一部分，例如 `mcp__example__search`。
+- `url` 必须使用 HTTPS；仅 `127.0.0.1`、`localhost`、`[::1]` 允许明文 HTTP。
+- 不要配置 `Authorization` header，它由 OAuth 客户端管理。如果某个服务端只接受
+  静态 personal access token，那它不需要本插件——用原生
+  `@deepseek-ai/dsh-mcp-client` 配 `headers` 即可。
+
+## 配置
+
+| 字段 | 说明 | 默认值 |
+| --- | --- | --- |
+| `serverName` | 注册到 DSH 的工具命名空间 | 必填 |
+| `url` | HTTPS Streamable HTTP MCP 地址 | 必填 |
+| `credentialRef` | 保存 OAuth 状态的 DSH credential 引用名 | `DSH_MCP_OAUTH_<SERVERNAME>` |
+| `scope` | 可选 OAuth scope | 由服务端发现 |
+| `headers` | 附加到 MCP 与发现请求的非 Authorization header | `{}` |
+| `callbackPort` | 本地回调端口；`0` 表示自动选择 | `0` |
+| `authorizationTimeoutMs` | 浏览器授权超时 | `300000` |
+| `toolCallTimeoutMs` | 单次 MCP 工具调用超时 | `60000` |
+| `failOnStartupError` | 首次尝试失败时终止插件激活 | `false` |
+| `reconnect` | 指数退避重连策略 | 已启用 |
+
+### `callbackPort` 与动态客户端注册
+
+插件保存的 OAuth 客户端注册是和 redirect URI 绑定的。默认 `callbackPort: 0` 时每次
+启动由系统分配新端口，已保存的注册会被判定为过期，于是重新执行一次动态客户端注册。
+对支持开放注册的服务端这没有影响，只是多一次往返。如果你的授权服务器会固定
+redirect URI，或者根本不支持动态客户端注册，就应显式指定 `callbackPort`，让
+redirect URI 在重启之间保持稳定。
+
+如果指定的端口已被占用，插件会记一条警告并回退到随机端口，而不是让加载失败——见下节。
+
+## 启动安全
+
+DSH 加载器中的一个条目如果 `apply()` 抛错，可能导致整个应用无法启动。本插件被设计成
+让常规运行时状况绝不触发这种情况：
+
+- `failOnStartupError` 默认为 **`false`**。服务端不可达、登录太慢、授权未完成，都只记
+  日志并由重连策略重试，而不是让激活失败。
+- 指定的 `callbackPort` 被占用时，回退到随机端口并记警告，而不是抛错。
+
+只有当你希望配置错误被立刻发现、并且接受启动失败可能阻塞 DSH 时，才设置
+`failOnStartupError: true`。
+
+确定性配置错误——`url` 格式错误、`serverName` 非法或重复、`reconnect` 取值非法——
+仍然会在加载时抛错，因为它们重试也不会成功。若此时 DSH 无法启动，在
+`cordis.patch.yml` 中禁用该条目：
+
+```yaml
+- id: oauth-mcp-example
+  disabled: true
+```
+
+## OAuth 实现说明
+
+插件实现 MCP SDK 的 `OAuthClientProvider` 接口，把协议本身（PKCE、动态客户端
+注册、授权服务器发现、令牌刷新）完全交给 `@modelcontextprotocol/sdk`；插件只提供
+宿主环境相关的部分：
+
+1. 在创建 transport **之前**先在 `127.0.0.1` 上按 `callbackPort` 监听，这样动态
+   客户端注册时就能拿到真实端口作为 `redirect_uri`。
+2. 首次连接预期会因 `UnauthorizedError` 失败，插件将其视为授权提示而不是连接错误：
+   打开浏览器、等待回调，然后重新连接。
+3. 授权状态以单个 JSON blob 通过 DSH credential service 持久化，读-改-写串行化；
+   PKCE code verifier 只保留在内存中。
+4. 回调会先用常数时间比较校验 `state`，然后才解析授权码或 error 参数。
 
 ## 安全说明
 
 - OAuth 状态由 DSH credential service 保存，不写入本仓库。
 - 回调服务只监听本地 loopback 地址。
+- `url` 必须使用 HTTPS；仅 loopback 开发端点允许明文 HTTP。
 - 不要配置 `Authorization` header；该 header 由 OAuth 客户端管理。
 - 不要提交 access token、refresh token 或导出的 credential 数据。
 
@@ -153,21 +153,6 @@ pnpm typecheck
 pnpm build
 pnpm pack --dry-run
 ```
-
-进行 DSH 加载级自检时，把当前 checkout 安装到一个 profile 并启动；出现提示后完成
-OAuth 登录：
-
-```sh
-PLUGIN_DIR="$PWD"
-npx --yes @deepseek-ai/dsh@latest plugin --profile headless add "$PLUGIN_DIR"
-npx --yes @deepseek-ai/dsh@latest --profile headless "hi"
-```
-
-## 生态元数据
-
-- 包名：`@dsh-external/dsh-oauth-mcp-client`
-- 自动发现 topic：`dsh-plugin`
-- 插件目录：[Awesome DSH Plugins](https://github.com/AdamPlatin123/awesome-dsh-plugins)
 
 ## 许可证
 
