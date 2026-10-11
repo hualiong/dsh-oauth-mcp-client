@@ -60,7 +60,7 @@ Append an entry to the profile patch layer at
 ```yaml
 - insert:
     - id: oauth-mcp-example
-      name: '@dsh-external/dsh-oauth-mcp-client'
+      name: '@hualiong/dsh-oauth-mcp-client'
       config:
         serverName: example
         url: https://mcp.example.com/mcp
@@ -85,16 +85,30 @@ Rules:
   only accepts a static personal access token, it does not need this plugin —
   use the native `@deepseek-ai/dsh-mcp-client` with `headers` instead.
 
+The plugin is fully transparent for servers that do not require OAuth: the SDK
+only starts the authorization flow after the server answers `401`, so a plain
+Streamable HTTP server behaves exactly as under the native client — no browser,
+no stored credential. Because of that, all Streamable HTTP MCP entries can use
+this plugin without filling in any OAuth field:
+
+- Omit `credentialRef` and it is derived from the loader entry `id`:
+  `cloudflare-mcp` → `CLOUDFLARE_MCP` (uppercased, every character outside
+  `A-Z0-9` replaced by `_`, prefixed with `MCP_` if it no longer starts with a
+  letter or `_`). An explicit `credentialRef` still wins.
+- `callbackPort` defaults to `45179`, so the redirect URI — and the stored OAuth
+  client registration — stays stable across restarts. Use `0` to let the OS pick
+  a free port, and give each OAuth server its own port.
+
 ## Configuration
 
 | Field | Description | Default |
 | --- | --- | --- |
 | `serverName` | Namespace used in registered DSH tool names | required |
 | `url` | HTTPS Streamable HTTP MCP endpoint | required |
-| `credentialRef` | DSH credential reference holding OAuth state | `DSH_MCP_OAUTH_<SERVERNAME>` |
+| `credentialRef` | DSH credential reference holding OAuth state | Derived from the loader entry `id` |
 | `scope` | Optional OAuth scope | Discovered from the server |
 | `headers` | Extra non-authorization headers for MCP and discovery requests | `{}` |
-| `callbackPort` | Loopback callback port; `0` selects a free port | `0` |
+| `callbackPort` | Loopback callback port; `0` selects a free port | `45179` |
 | `authorizationTimeoutMs` | Browser authorization timeout | `300000` |
 | `toolCallTimeoutMs` | Timeout for one MCP tool call | `60000` |
 | `failOnStartupError` | Fail activation when the first attempt fails | `false` |
@@ -102,13 +116,13 @@ Rules:
 
 ### `callbackPort` and dynamic client registration
 
-The plugin stores the OAuth client registration keyed by its redirect URI. With
-the default `callbackPort: 0` the OS picks a new port each start, so the stored
-registration is treated as stale and dynamic client registration runs again.
-That is harmless for servers with open registration, but it costs one extra
-round trip. If your authorization server pins redirect URIs, or does not support
-dynamic client registration at all, set an explicit `callbackPort` so the
-redirect URI stays stable across restarts.
+The plugin stores the OAuth client registration keyed by its redirect URI. The
+callback port defaults to `45179`, so the redirect URI is stable across restarts
+and the stored registration stays valid. With `callbackPort: 0` the OS picks a
+new port each start, so the stored registration is treated as stale and dynamic
+client registration runs again — harmless for servers with open registration,
+but it costs one extra round trip. If several OAuth servers are configured, give
+each of them its own `callbackPort`; the default is shared.
 
 If a pinned port is already occupied, the plugin logs a warning and falls back
 to an ephemeral port rather than failing — see below.

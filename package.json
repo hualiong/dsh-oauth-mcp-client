@@ -1,5 +1,5 @@
 {
-  "name": "@dsh-external/dsh-oauth-mcp-client",
+  "name": "@hualiong/dsh-oauth-mcp-client",
   "version": "0.1.0",
   "description": "OAuth-enabled Streamable HTTP MCP client plugin for DeepSeek Harness",
   "type": "module",
@@ -11,7 +11,9 @@
       "default": "./lib/index.js"
     },
     "./dsh-oauth-mcp.cordis.yml": "./dsh-oauth-mcp.cordis.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/en.json": "./locale/en.json",
+    "./locale/zh.json": "./locale/zh.json"
   },
   "files": [
     "lib/**/*.js",
@@ -19,7 +21,8 @@
     "lib/**/*.d.ts",
     "README.md",
     "README.zh-CN.md",
-    "dsh-oauth-mcp.cordis.yml"
+    "dsh-oauth-mcp.cordis.yml",
+    "locale"
   ],
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\"",
@@ -38,6 +41,9 @@
     "oauth"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hualiong/dsh-oauth-mcp-client.git"

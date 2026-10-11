@@ -5,7 +5,7 @@
  * behavior of `@deepseek-ai/dsh-mcp-client`, while adding an interactive
  * OAuth authorization-code flow backed by the Harness credential service.
  *
- * @module @dsh-external/dsh-oauth-mcp-client
+ * @module @hualiong/dsh-oauth-mcp-client
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -15,7 +15,6 @@ import type {} from './dsh.js'
 import { createOAuthRuntime } from './oauth.js'
 import { RECONNECT_DEFAULTS, resolveReconnectPolicy, startConnection } from './connection.js'
 import type { ReconnectConfig } from './connection.js'
-import { registerConnection } from './registry.js'
 
 export type { McpResult } from './tools.js'
 export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.js'
@@ -28,6 +27,7 @@ export const inject = ['tools', 'credentials']
 
 const DEFAULT_TOOL_CALL_TIMEOUT_MS = 60_000
 const DEFAULT_AUTHORIZATION_TIMEOUT_MS = 5 * 60_000
+const DEFAULT_CALLBACK_PORT = 45179
 const MAX_TIMER_DELAY_MS = 2_147_483_647
 const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]{1,32}$/
 
@@ -37,13 +37,13 @@ export interface Config {
   serverName: string
   /** HTTPS MCP endpoint; loopback HTTP is accepted for local development. */
   url: string
-  /** Harness credential reference holding the serialized OAuth state. */
+  /** Harness credential reference holding the serialized OAuth state; derives from the loader entry id when omitted. */
   credentialRef?: string
   /** Optional fallback OAuth scope when server metadata does not declare one. */
   scope?: string
   /** Non-authorization headers attached to MCP and OAuth discovery requests. */
   headers?: Record<string, string>
-  /** Loopback callback port; `0` asks the OS for an available port. */
+  /** Loopback callback port; `0` asks the OS for an available port. Defaults to 45179. */
   callbackPort?: number
   /** Maximum wait for the browser authorization callback. */
   authorizationTimeoutMs?: number
@@ -68,6 +68,7 @@ export interface Config {
 export interface ResolvedConfig {
   serverName: string
   url: string
+  /** Always resolved: explicit `config.credentialRef`, else derived from the loader entry id. */
   credentialRef: string
   scope?: string
   headers: Record<string, string>
@@ -91,7 +92,7 @@ export const Config: z<Config> = z.object({
   credentialRef: z.string(),
   scope: z.string(),
   headers: z.dict(String).default({}),
-  callbackPort: z.number().step(1).min(0).max(65_535).default(0),
+  callbackPort: z.number().step(1).min(0).max(65_535).default(DEFAULT_CALLBACK_PORT),
   authorizationTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_AUTHORIZATION_TIMEOUT_MS),
   toolCallTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_TOOL_CALL_TIMEOUT_MS),
   failOnStartupError: z.boolean().default(false),
@@ -100,9 +101,10 @@ export const Config: z<Config> = z.object({
 
 const activeServerNames = new WeakMap<Context, Set<string>>()
 
-/** Derive a valid credential reference when the deployment does not name one. */
-export function defaultCredentialRef(serverName: string): string {
-  return `DSH_MCP_OAUTH_${serverName.toUpperCase().replaceAll('-', '_')}`
+/** Derive a valid credential reference from a loader entry id when the deployment does not name one. */
+export function defaultCredentialRef(entryId: string): string {
+  const normalized = entryId.toUpperCase().replaceAll(/[^A-Z0-9]/g, '_')
+  return /^[A-Z_]/.test(normalized) ? normalized : `MCP_${normalized}`
 }
 
 /** Model guidance for discovering and executing tools from one MCP server. */
@@ -131,7 +133,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     throw new Error('dsh-oauth-mcp-client: headers.Authorization is owned by OAuth and must not be configured')
   }
 
-  const callbackPort = config.callbackPort ?? 0
+  const callbackPort = config.callbackPort ?? DEFAULT_CALLBACK_PORT
   if (!Number.isInteger(callbackPort) || callbackPort < 0 || callbackPort > 65_535) {
     throw new Error('dsh-oauth-mcp-client: callbackPort must be an integer from 0 through 65535')
   }
@@ -143,6 +145,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     }
   }
 
+  // apply() passes the entry-derived ref; this fallback only serves direct callers (tests).
   const ref = config.credentialRef ?? defaultCredentialRef(config.serverName)
   credentialRef(ref)
   const scope = config.scope?.trim()
@@ -163,7 +166,12 @@ export function resolveConfig(config: Config): ResolvedConfig {
 
 /** Connect, authorize when needed, and publish the remote MCP tools. */
 export async function apply(ctx: Context, config: Config): Promise<void> {
-  const resolved = resolveConfig(config)
+  const entryId = (ctx.fiber as typeof ctx.fiber & { entry?: { options?: { id?: unknown } } }).entry?.options?.id
+  if (typeof entryId !== 'string' || !entryId) throw new Error('dsh-oauth-mcp-client: loader entry id is required')
+  const resolved = resolveConfig({
+    ...config,
+    credentialRef: config.credentialRef ?? defaultCredentialRef(entryId),
+  })
   const reconnect = resolveReconnectPolicy(config.reconnect, `dsh-oauth-mcp-client(${resolved.serverName}): reconnect`)
 
   ctx.effect(() => {
@@ -181,11 +189,6 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     return () => void names.delete(resolved.serverName)
   }, 'dsh-oauth-mcp-client.serverName')
 
-  const entryId = (ctx.fiber as typeof ctx.fiber & { entry?: { options?: { id?: unknown } } }).entry?.options?.id
-  if (typeof entryId !== 'string' || !entryId) throw new Error('dsh-oauth-mcp-client: loader entry id is required')
-  const reporter = registerConnection(ctx.root, resolved, entryId)
-  ctx.effect(() => () => { reporter.dispose() }, 'dsh-oauth-mcp-client.web-projection')
-
   ctx.inject(['systemPrompt'], (promptCtx) => {
     promptCtx.systemPrompt.section({
       name: `tool:mcp:${resolved.serverName}`,
@@ -197,7 +200,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const oauth = await createOAuthRuntime(ctx, resolved)
   ctx.effect(() => () => oauth.dispose(), 'dsh-oauth-mcp-client.oauth')
 
-  const connection = startConnection(ctx, resolved, reconnect, oauth, reporter)
+  const connection = startConnection(ctx, resolved, reconnect, oauth)
   ctx.effect(() => () => connection.dispose(), 'dsh-oauth-mcp-client.connection')
 
   const outcome = await connection.ready

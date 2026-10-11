@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OAuth MCP Client",
+    "description": "OAuth-enabled Streamable HTTP MCP client bridge: one row per MCP server."
+  }
+}

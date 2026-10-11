@@ -1,4 +1,4 @@
-# Bundle patch for @dsh-external/dsh-oauth-mcp-client.
+# Bundle patch for @hualiong/dsh-oauth-mcp-client.
 #
 # This patch is INTENTIONALLY EMPTY. Installing this package activates nothing:
 # no MCP endpoint, no credential, no browser flow. Every connection is declared
@@ -10,7 +10,7 @@
 #
 #   - insert:
 #       - id: oauth-mcp-example
-#         name: '@dsh-external/dsh-oauth-mcp-client'
+#         name: '@hualiong/dsh-oauth-mcp-client'
 #         config:
 #           serverName: example
 #           url: https://mcp.example.com/mcp

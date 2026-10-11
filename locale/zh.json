@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "OAuth MCP 客户端",
+    "description": "支持 OAuth 的 Streamable HTTP MCP 客户端桥接：每个 MCP 服务器一行配置。"
+  }
+}

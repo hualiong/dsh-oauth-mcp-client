@@ -56,7 +56,7 @@ profile 名要填 DSH Desktop 实际加载的那个。本机是 `desktop`，对�
 ```yaml
 - insert:
     - id: oauth-mcp-example
-      name: '@dsh-external/dsh-oauth-mcp-client'
+      name: '@hualiong/dsh-oauth-mcp-client'
       config:
         serverName: example
         url: https://mcp.example.com/mcp
@@ -77,16 +77,27 @@ profile 名要填 DSH Desktop 实际加载的那个。本机是 `desktop`，对�
   静态 personal access token，那它不需要本插件——用原生
   `@deepseek-ai/dsh-mcp-client` 配 `headers` 即可。
 
+对不需要 OAuth 的服务端，本插件完全透明：只有服务端返回 `401` 时 SDK 才会进入授权
+流程，因此普通 Streamable HTTP 服务端的行为与原生客户端一致——不弹浏览器、不写
+credential。正因如此，所有 Streamable HTTP 条目都可以直接归到本插件，无需填写任何
+OAuth 字段：
+
+- 不写 `credentialRef` 时，它由 loader 条目的 `id` 推导：`cloudflare-mcp` →
+  `CLOUDFLARE_MCP`（转大写，`A-Z0-9` 之外的字符全部替换为 `_`；若结果不再以字母或
+  `_` 开头则前置 `MCP_`）。显式配置的 `credentialRef` 仍然优先。
+- `callbackPort` 默认 `45179`，redirect URI（以及已保存的 OAuth 客户端注册）在重启
+  之间保持稳定。填 `0` 表示由系统分配端口；多个 OAuth 服务端请各自指定不同端口。
+
 ## 配置
 
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
 | `serverName` | 注册到 DSH 的工具命名空间 | 必填 |
 | `url` | HTTPS Streamable HTTP MCP 地址 | 必填 |
-| `credentialRef` | 保存 OAuth 状态的 DSH credential 引用名 | `DSH_MCP_OAUTH_<SERVERNAME>` |
+| `credentialRef` | 保存 OAuth 状态的 DSH credential 引用名 | 由 loader 条目 `id` 推导 |
 | `scope` | 可选 OAuth scope | 由服务端发现 |
 | `headers` | 附加到 MCP 与发现请求的非 Authorization header | `{}` |
-| `callbackPort` | 本地回调端口；`0` 表示自动选择 | `0` |
+| `callbackPort` | 本地回调端口；`0` 表示自动选择 | `45179` |
 | `authorizationTimeoutMs` | 浏览器授权超时 | `300000` |
 | `toolCallTimeoutMs` | 单次 MCP 工具调用超时 | `60000` |
 | `failOnStartupError` | 首次尝试失败时终止插件激活 | `false` |
@@ -94,11 +105,11 @@ profile 名要填 DSH Desktop 实际加载的那个。本机是 `desktop`，对�
 
 ### `callbackPort` 与动态客户端注册
 
-插件保存的 OAuth 客户端注册是和 redirect URI 绑定的。默认 `callbackPort: 0` 时每次
-启动由系统分配新端口，已保存的注册会被判定为过期，于是重新执行一次动态客户端注册。
-对支持开放注册的服务端这没有影响，只是多一次往返。如果你的授权服务器会固定
-redirect URI，或者根本不支持动态客户端注册，就应显式指定 `callbackPort`，让
-redirect URI 在重启之间保持稳定。
+插件保存的 OAuth 客户端注册是和 redirect URI 绑定的。`callbackPort` 默认 `45179`，
+因此 redirect URI 在重启之间保持稳定，已保存的注册继续有效。填 `callbackPort: 0`
+时每次启动由系统分配新端口，已保存的注册会被判定为过期，于是重新执行一次动态客户端
+注册——对支持开放注册的服务端没有影响，只是多一次往返。配置多个 OAuth 服务端时，
+请给每个服务端指定各自的 `callbackPort`，默认值是共享的。
 
 如果指定的端口已被占用，插件会记一条警告并回退到随机端口，而不是让加载失败——见下节。
 

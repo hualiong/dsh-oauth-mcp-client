@@ -331,6 +331,7 @@ export async function createOAuthRuntime(
     // still not reject: a throwing apply() can stop DSH from starting at all.
     // An ephemeral port keeps DSH alive and authorization still works — the
     // only cost is a renewed dynamic client registration.
+    // Multiple OAuth servers must each configure a distinct callbackPort.
     ctx.logger.warn(
       `dsh-oauth-mcp-client(${config.serverName}): callback port ${String(config.callbackPort)} is unavailable `
       + `(${error instanceof Error ? error.message : String(error)}); falling back to an ephemeral port — `
