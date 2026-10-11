@@ -1,25 +1,29 @@
 name: Publish to npm
 
-# 推送到 GitHub 后自动发布到 npm：
-#   1) 打标签  git tag v0.1.x && git push origin v0.1.x
-#   2) 或手动  Actions → "Publish to npm" → Run workflow
-# 需要先在仓库设置里配置 NPM_TOKEN secret（npmjs.com → Access tokens →
-# Granular token：Packages 勾 Read and write；账号开了 2FA 还要勾 bypass 2FA）。
+# Publishes a version tag with npm trusted publishing (OIDC): no NPM_TOKEN and no
+# 2FA prompt. Configure once on the package page:
+#   https://www.npmjs.com/package/@hualiong/dsh-oauth-mcp-client
+#   → Settings → Trusted Publisher → GitHub Actions
+#     organization/user: hualiong
+#     repository:        dsh-oauth-mcp-client
+#     workflow filename: publish.yml
+#     environment:       (leave empty)
+#     allowed actions:   Allow npm publish
+# Release:  git tag v0.1.x && git push origin main v0.1.x
+# Manual:   Actions → "Publish to npm" → Run workflow (no tag to verify)
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      # Job-level so pnpm/.npmrc can read it (step-level env is too late and
-      # triggers "[WARN] Failed to replace env in config").
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
@@ -27,20 +31,33 @@ jobs:
         with:
           version: 11.9.0
 
-      # pnpm 11 requires Node >= 22.13 (this package also declares >= 22.19).
+      # pnpm 11 requires Node >= 22.13 (Node 20 fails instantly).
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+          # Deliberately no registry-url: it writes an empty
+          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} placeholder into
+          # .npmrc, which shadows the OIDC credential this workflow relies on.
+
+      - name: Trusted publishing needs npm >= 11.5.1
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `lib/` is git-ignored: the published artifact is built here (and again
-      # by the package's own `prepare` script while npm packs the tarball).
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # `npm publish` runs the `prepare` script (pnpm build → tsc), which rebuilds
+      # the gitignored lib/ that the published tarball ships.
       - name: Build
         run: pnpm build
 
+      # Only meaningful for tag-triggered runs; a manual dispatch has no tag
+      # (GITHUB_REF_NAME is the branch), so it is skipped there.
       - name: Verify tag matches package version
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: |
@@ -67,4 +84,4 @@ jobs:
 
       - name: Publish to npm
         if: steps.check-publish.outputs.skip_publish != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --provenance
